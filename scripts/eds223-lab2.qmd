@@ -1,0 +1,208 @@
+---
+title: "EDS 223: Week 2"
+format: html
+editor: visual
+---
+
+```{r}
+rm(list = ls()) # clear environment
+```
+
+```{r}
+library(sf)
+library(tidyverse)
+library(spData)
+library(tmap)
+```
+
+## Making a sf object 
+
+```{r}
+london_point <- st_point(c(0.1, 51.5)) # lat, long
+
+london_geom <- st_sfc(london_point, crs = 4326)
+
+# make a df
+london_attrib <- data.frame(
+  name = "London", 
+  temperature = 25, 
+  date = as.Date("2017-06-21")
+)
+
+# add geometry column to make a sf
+london_sf <- st_sf(london_attrib, geometry = london_geom)
+
+
+# QC
+class(london_sf) # check class to make sure it worked 
+st_crs(london_sf) # check crs
+st_crs(london_sf)$IsGeographic # check if it's geographic
+```
+
+## Load & work with global data
+
+```{r}
+world <- spData::world
+
+names(world) # check column names
+summary(world$lifeExp) # explore specific columns
+```
+
+#### Sticky geometry column
+
+```{r}
+# the geometry column is sticky 
+# how can we turn a sf back into a df?
+world_df <- st_drop_geometry(world)
+
+class(world_df) # QC
+```
+
+#### Reprojecting data
+
+```{r}
+london_proj <- data.frame(x = 53000, y = 180000) %>% 
+  st_as_sf(coords = c("x", "y"), crs = "EPSG:27700")
+
+st_crs(london_proj) == st_crs(london_sf) # check if they have the same crs
+
+
+# match the london_sf CRS to london_proj CRS
+london_sf_transform <- st_transform(london_sf, crs = st_crs(london_proj)) 
+```
+
+#### Self check's
+
+```{r}
+if(st_crs(london_sf_transform) == st_crs(london_proj)) {
+  print("coordinate reference systems of datasets match")
+} else {
+  warning("coordinate reference systems do not match")
+}
+```
+
+#### Make & compare global maps
+
+```{r}
+tm_shape(world, projection = 8857) + # equal area
+  tm_fill(col = "area_km2")
+```
+
+```{r}
+# make the same map, but change the projection
+tm_shape(world, projection = 3395) + # mercator
+  tm_fill(col = "area_km2")
+```
+
+## Vector attribute subsetting 
+
+```{r}
+# world %>% 
+#   select(name_long, pop) %>% # select columns
+#   
+# world %>% 
+#   select(-subregion) # remove columns 
+# 
+# world %>% 
+#   rename(name = name_long, population = pop) # rename things 
+```
+
+```{r}
+world1 <- world %>% 
+  filter(area_km < 10000) # filter observations
+```
+
+```{r}
+max_lifeExp_asia <- world %>% 
+  filter(continent == "Asia") %>% 
+  select(name_long, continent, lifeExp) %>% 
+  slice_max(lifeExp) %>% # pick the country with the highest life expectancy 
+  st_drop_geometry
+```
+
+## Aggregate data based on their attributes
+
+```{r}
+world %>% 
+  group_by(continent) %>% 
+  summarize(population = sum(pop, na.rm = TRUE)) %>% 
+  st_drop_geometry()
+```
+
+## Joins w/ vector attributes
+
+```{r}
+coffee_data <- spData::coffee_data
+```
+
+```{r}
+nrow(coffee_data)
+nrow(world)
+```
+
+```{r}
+# add coffee columns to the world_df; keep all world observations
+world_coffee <- left_join(world, coffee_data, 
+                          by = "name_long")
+```
+
+```{r}
+tm_shape(world_coffee) +
+  tm_fill(col = "coffee_production_2017")
+```
+
+```{r}
+# only keep matches between both data sets
+world_coffee_inner <- inner_join(world, coffee_data, 
+                                 by = "name_long")
+
+
+# make sure we don't lose estimations of coffee data after the join
+if(nrow(world_coffee_inner) < nrow(coffee_data)) {
+  warning("inner join does not match original data. potential data loss")
+}
+```
+
+#### Trouble shooting with `setdiff`
+
+```{r}
+# compare two vectors to see what's missing 
+# what names are in the coffee data but not world?
+setdiff(coffee_data$name_long, world$name_long)
+```
+
+```{r}
+drc <- stringr::str_subset(world$name_long, "Dem*.+Congo")
+```
+
+#### Update the coffee data to have a perfect join
+
+```{r}
+# find the observation in coffee data w/ "Congo" and update to the full name
+coffee_data$name_long[stringr::str_detect(coffee_data$name_long, "Congo")] <- drc
+```
+
+#### Map the inner join 
+
+```{r}
+# not a very informative map
+# BUT, useful to do a QC of what our inner join is doing
+tm_shape(world_coffee_inner) + 
+  tm_polygons(fill = "coffee_production_2017", 
+              title = "Coffee production (2017)") +
+  tm_layout(legend.outside = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
