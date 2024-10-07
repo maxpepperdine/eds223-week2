@@ -2,6 +2,8 @@
 title: "EDS 223: Week 2"
 format: html
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r}
