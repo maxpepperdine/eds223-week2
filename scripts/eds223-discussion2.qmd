@@ -1,0 +1,89 @@
+---
+title: "EDS 223 Week 2 Discussion"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Load packages
+
+```{r}
+library(here)
+library(tidyverse)
+library(sf)
+library(tmap)
+```
+
+## Load data 
+
+```{r}
+# Colombia's ecoregions
+ecoregions <- st_read(here("data/Colombia/Colombia.shp"))
+
+# Colombia's roads
+roads <- st_read(here("data/RDLINE_colombia/RDLINE_colombia.shp"))
+
+# Bird observations
+birds <- read_csv(here("data/dataves.csv"))
+```
+
+## Data wrangling
+
+#### Turn birds into a tibble class & sf object
+
+```{r}
+birds_tibble <- birds %>% 
+  as_tibble() %>% 
+  rename(long = decimal_longitude, 
+         lat = decimal_latitude) %>% 
+  st_as_sf(coords = c("long", "lat"), crs = 4326)
+```
+
+```{r}
+# determine the geometry type of an sf
+unique(st_geometry_type(birds_tibble))
+```
+
+#### Filter ecoregions by Andean
+
+```{r}
+ecoregion_andean <- ecoregions %>% 
+  mutate(N1_MacroBi = as.factor(N1_MacroBi)) %>%
+  filter(N1_MacroBi == "Andean")
+
+plot(ecoregion_andean)
+```
+
+#### View CRS
+
+```{r}
+# check CRS
+st_crs(ecoregion)
+
+# check the units of the CRS
+st_crs(ecoregions)$units
+```
+
+#### Transform CRS
+
+```{r}
+# check if they're the same
+st_crs(ecoregions) == st_crs(birds_tibble)
+```
+
+```{r}
+# make the birds_tibble the same crs as the ecoregions crs
+birds_tibble <- st_transform(birds_tibble, crs = st_crs(ecoregions))
+```
+
+
+
+
+
+
+
+
+
+
+
